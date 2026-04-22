@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Блокиратор | Реши и играй</title>
+    <!-- Библиотека для салюта -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Библиотека для чтения CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
         body { background-color: #F4F7F6; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; color: #333; }
@@ -14,8 +17,11 @@
         .logo-emoji { font-size: 80px; margin-bottom: 20px; }
         h1 { font-size: 28px; font-weight: 800; color: #1E293B; margin-bottom: 10px; line-height: 1.2; }
         p.subtitle { font-size: 16px; color: #64748B; margin-bottom: 40px; }
+        
         .btn-main { background: #3B82F6; color: white; border: none; padding: 20px; font-size: 20px; font-weight: bold; border-radius: 16px; cursor: pointer; box-shadow: 0 6px 0 #2563EB; transition: transform 0.1s; }
         .btn-main:active { transform: translateY(6px); box-shadow: 0 0 0 #2563EB; }
+        .btn-main:disabled { background: #94A3B8; box-shadow: 0 6px 0 #64748B; cursor: not-allowed; transform: none; }
+
         .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .subject-badge { background: #E2E8F0; padding: 5px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; color: #475569; }
         .progress-container { width: 100%; background: #E2E8F0; height: 12px; border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
@@ -39,7 +45,7 @@
         <div class="logo-emoji">📱🔒</div>
         <h1>Хочешь поиграть?</h1>
         <p class="subtitle">Реши 3 задачи, чтобы получить доступ к телефону на 15 минут.</p>
-        <button class="btn-main" onclick="startGame()">Начать испытание</button>
+        <button id="start-btn" class="btn-main" onclick="startGame()" disabled>Загрузка базы...</button>
     </div>
 
     <div id="screen-game" class="screen">
@@ -68,63 +74,133 @@
 </div>
 
 <script>
-    const database = [
-        {q: `Сколько будет 7 × 8?`, options: ["54", "56", "64"], correctIndex: 1, subject: "Математика"},
-        {q: `Реши пример: 45 + 17`, options: ["62", "52", "63"], correctIndex: 0, subject: "Математика"},
-        {q: `Сколько будет 81 ÷ 9?`, options: ["7", "8", "9"], correctIndex: 2, subject: "Математика"},
-        {q: `У Пети 5 яблок, у Маши в 3 раза больше. Сколько у Маши?`, options: ["8", "15", "20"], correctIndex: 1, subject: "Математика"},
-        {q: `Вычисли: 100 – 43`, options: ["57", "67", "47"], correctIndex: 0, subject: "Математика"},
-        {q: `Какое число идет сразу после 399?`, options: ["398", "401", "400"], correctIndex: 2, subject: "Математика"},
-        {q: `Сколько будет 6 × 9?`, options: ["54", "56", "45"], correctIndex: 0, subject: "Математика"},
-        {q: `Чему равна половина от числа 50?`, options: ["20", "25", "30"], correctIndex: 1, subject: "Математика"},
-        {q: `Реши пример: 32 + 48`, options: ["70", "90", "80"], correctIndex: 2, subject: "Математика"},
-        {q: `Если 5 умножить на 0, получится:`, options: ["5", "0", "50"], correctIndex: 1, subject: "Математика"},
-        {q: `Вставь пропущенную букву: м...локо`, options: ["а", "о", "е"], correctIndex: 1, subject: "Русский язык"},
-        {q: `Какая буква пишется в слове: ж...раф?`, options: ["и", "ы", "е"], correctIndex: 0, subject: "Русский язык"},
-        {q: `Вставь пропущенную букву: с...бака`, options: ["а", "о", "у"], correctIndex: 1, subject: "Русский язык"},
-        {q: `Какая буква нужна в слове: ч...до?`, options: ["ю", "у", "о"], correctIndex: 1, subject: "Русский язык"},
-        {q: `Какое слово написано с ошибкой?`, options: ["Машина", "Шишка", "Жывот"], correctIndex: 2, subject: "Русский язык"},
-        {q: `Вставь пропущенную букву: со...нце`, options: ["л", "р", "буква не нужна"], correctIndex: 0, subject: "Русский язык"},
-        {q: `Какое проверочное слово к слову "тр...ва"?`, options: ["травушка", "травы", "травинка"], correctIndex: 1, subject: "Русский язык"},
-        {q: `Вставь пропущенную букву: ябл...ко`, options: ["а", "о", "и"], correctIndex: 1, subject: "Русский язык"},
-        {q: `Какое слово написано правильно?`, options: ["Чуство", "Чувство", "Чювство"], correctIndex: 1, subject: "Русский язык"},
-        {q: `Какое из этих слов означает действие (глагол)?`, options: ["Бег", "Бегать", "Быстрый"], correctIndex: 1, subject: "Русский язык"},
-        {q: `Сколько будет 6 × 7?`, options: ["42", "48", "36"], correctIndex: 0, subject: "Математика"},
-        {q: `Реши: 15 + 24`, options: ["49", "39", "29"], correctIndex: 1, subject: "Математика"},
-        {q: `Сколько будет 36 ÷ 6?`, options: ["7", "8", "6"], correctIndex: 2, subject: "Математика"},
-        {q: `В 1 часе сколько минут?`, options: ["100", "60", "50"], correctIndex: 1, subject: "Математика"},
-        {q: `Вычисли: 8 × 8`, options: ["64", "56", "72"], correctIndex: 0, subject: "Математика"},
-        {q: `У Маши 12 конфет, она съела 4. Сколько осталось?`, options: ["7", "9", "8"], correctIndex: 2, subject: "Математика"},
-        {q: `Реши: 50 – 18`, options: ["32", "42", "22"], correctIndex: 0, subject: "Математика"},
-        {q: `Сколько будет 27 ÷ 3?`, options: ["8", "9", "7"], correctIndex: 1, subject: "Математика"},
-        {q: `4 × 9 = ?`, options: ["32", "34", "36"], correctIndex: 2, subject: "Математика"},
-        {q: `Вычисли: 100 – 55`, options: ["45", "55", "35"], correctIndex: 0, subject: "Математика"},
-        {q: `Какое число больше: 405 или 450?`, options: ["405", "450", "Они равны"], correctIndex: 1, subject: "Математика"},
-        {q: `Сколько будет 5 × 7?`, options: ["30", "45", "35"], correctIndex: 2, subject: "Математика"},
-        {q: `Реши: 80 + 15`, options: ["95", "85", "105"], correctIndex: 0, subject: "Математика"},
-        {q: `1 метр — это сколько сантиметров?`, options: ["10", "100", "1000"], correctIndex: 1, subject: "Математика"},
-        {q: `Сколько будет 48 ÷ 8?`, options: ["5", "7", "6"], correctIndex: 2, subject: "Математика"},
-        {q: `Вычисли: 3 × 9`, options: ["27", "24", "36"], correctIndex: 0, subject: "Математика"},
-        {q: `В коробке 5 рядов по 6 конфет. Сколько всего?`, options: ["11", "30", "25"], correctIndex: 1, subject: "Математика"},
-        {q: `Реши: 64 ÷ 8`, options: ["7", "9", "8"], correctIndex: 2, subject: "Математика"},
-        {q: `Увеличь 15 на 10`, options: ["25", "5", "150"], correctIndex: 0, subject: "Математика"},
-        {q: `Уменьши 40 в 5 раз`, options: ["35", "8", "45"], correctIndex: 1, subject: "Математика"},
-        {q: `Сколько будет 7 × 9?`, options: ["54", "72", "63"], correctIndex: 2, subject: "Математика"},
-        {q: `Реши: 23 + 47`, options: ["70", "60", "80"], correctIndex: 0, subject: "Математика"},
-        {q: `Вычисли: 100 – 1`, options: ["90", "99", "10"], correctIndex: 1, subject: "Математика"},
-        {q: `Половина от 100 — это:`, options: ["25", "10", "50"], correctIndex: 2, subject: "Математика"},
-        {q: `Сколько будет 2 × 8?`, options: ["16", "18", "14"], correctIndex: 0, subject: "Математика"},
-        {q: `В 1 неделе сколько дней?`, options: ["5", "7", "10"], correctIndex: 1, subject: "Математика"},
-        {q: `Реши: 56 ÷ 7`, options: ["9", "7", "8"], correctIndex: 2, subject: "Математика"},
-        {q: `Найти сумму 14 и 16`, options: ["30", "20", "40"], correctIndex: 0, subject: "Математика"},
-        {q: `Разность чисел 20 и 5`, options: ["25", "15", "100"], correctIndex: 1, subject: "Математика"},
-        {q: `9 × 9 = ?`, options: ["72", "90", "81"], correctIndex: 2, subject: "Математика"},
-        {q: `Вычисли: 88 – 44`, options: ["44", "55", "33"], correctIndex: 0, subject: "Математика"},
-        {q: `Сколько лап у трех котов?`, options: ["10", "12", "8"], correctIndex: 1, subject: "Математика"},
-        {q: `Реши: 45 ÷ 5`, options: ["8", "10", "9"], correctIndex: 2, subject: "Математика"},
-        {q: `Чему равно 0 × 100?`, options: ["0", "100", "10"], correctIndex: 0, subject: "Математика"},
-        {q: `Какое число идет перед 500?`, options: ["400", "499", "501"], correctIndex: 1, subject: "Математика"},
-        {q: `Вычисли: 7 × 4`, options: ["32", "24", "28"], correctIndex: 2, subject: "Математика"},
-        {q: `Реши: 33 + 33`, options: ["66", "99", "63"], correctIndex: 0, subject: "Математика"},
-        {q: `Уменьши 50 на 20`, options: ["70", "30", "10"], correctIndex: 1, subject: "Математика"},
-        {q: `Сколько будет 42 ÷ 6?
+    let database = []; // Теперь база пустая, она загрузится из файла
+    const questionsNeeded = 3; 
+    let currentQuestions = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let isClickable = true; 
+
+    // МАГИЯ ЗАГРУЗКИ CSV
+    window.onload = function() {
+        // Добавляем случайное число к ссылке, чтобы браузер не кешировал старые версии файла
+        const cacheBuster = Math.random();
+        Papa.parse("questions.csv?v=" + cacheBuster, {
+            download: true,
+            header: true, // Говорим, что в первой строке заголовки
+            skipEmptyLines: true,
+            complete: function(results) {
+                // Перепаковываем данные из CSV в нужный нам формат
+                database = results.data.map(row => {
+                    // Превращаем буквы A, B, C в индексы кнопок 0, 1, 2
+                    let cIndex = 0;
+                    if (row.Correct_Answer === 'B') cIndex = 1;
+                    if (row.Correct_Answer === 'C') cIndex = 2;
+
+                    return {
+                        q: row.Question,
+                        options: [row.Option_A, row.Option_B, row.Option_C],
+                        correctIndex: cIndex,
+                        subject: row.Subject
+                    };
+                });
+                
+                // Активируем кнопку Старт
+                const startBtn = document.getElementById('start-btn');
+                startBtn.innerText = "Начать испытание";
+                startBtn.disabled = false;
+                console.log("База успешно загружена. Вопросов:", database.length);
+            },
+            error: function(err) {
+                document.getElementById('start-btn').innerText = "Ошибка загрузки базы!";
+                console.error("Ошибка при загрузке CSV:", err);
+            }
+        });
+    };
+
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    function startGame() {
+        if (database.length < questionsNeeded) {
+            alert("В базе слишком мало вопросов!");
+            return;
+        }
+
+        currentQuestions = [...database].sort(() => 0.5 - Math.random()).slice(0, questionsNeeded);
+        currentQuestionIndex = 0;
+        score = 0;
+        
+        document.getElementById('total-steps').innerText = questionsNeeded;
+        updateProgress();
+        loadQuestion();
+        showScreen('screen-game');
+    }
+
+    function loadQuestion() {
+        isClickable = true;
+        const qData = currentQuestions[currentQuestionIndex];
+        
+        document.getElementById('subject-label').innerText = qData.subject;
+        document.getElementById('question-text').innerText = qData.q;
+        
+        for(let i = 0; i < 3; i++) {
+            const btn = document.getElementById(`btn-${i}`);
+            btn.innerText = qData.options[i];
+            btn.className = 'option-btn'; 
+        }
+    }
+
+    function checkAnswer(selectedIndex) {
+        if (!isClickable) return;
+        isClickable = false; 
+
+        const qData = currentQuestions[currentQuestionIndex];
+        const btn = document.getElementById(`btn-${selectedIndex}`);
+
+        if (selectedIndex === qData.correctIndex) {
+            btn.classList.add('correct');
+            score++;
+            updateProgress();
+            
+            setTimeout(() => {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < questionsNeeded) {
+                    loadQuestion();
+                } else {
+                    finishGame();
+                }
+            }, 800); 
+        } else {
+            btn.classList.add('wrong');
+            setTimeout(() => {
+                btn.classList.remove('wrong');
+                isClickable = true;
+            }, 600);
+        }
+    }
+
+    function updateProgress() {
+        document.getElementById('current-step').innerText = score;
+        const percent = (score / questionsNeeded) * 100;
+        document.getElementById('progress-bar').style.width = `${percent}%`;
+    }
+
+    function finishGame() {
+        showScreen('screen-success');
+        const code = Math.floor(1000 + Math.random() * 9000);
+        document.getElementById('secret-code').innerText = code;
+        
+        var duration = 3 * 1000;
+        var end = Date.now() + duration;
+        (function frame() {
+            confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#10B981', '#3B82F6', '#F59E0B'] });
+            confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#10B981', '#3B82F6', '#F59E0B'] });
+            if (Date.now() < end) requestAnimationFrame(frame);
+        }());
+    }
+</script>
+</body>
+</html>
