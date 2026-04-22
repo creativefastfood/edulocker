@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Блокиратор | Реши и играй</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #F4F7F6; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; color: #333; }
+        .app-container { width: 100%; max-width: 400px; height: 100%; max-height: 850px; background: #FFFFFF; display: flex; flex-direction: column; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .screen { display: none; flex-direction: column; height: 100%; padding: 20px; text-align: center; justify-content: center; }
+        .screen.active { display: flex; }
+        .logo-emoji { font-size: 80px; margin-bottom: 20px; }
+        h1 { font-size: 28px; font-weight: 800; color: #1E293B; margin-bottom: 10px; line-height: 1.2; }
+        p.subtitle { font-size: 16px; color: #64748B; margin-bottom: 40px; }
+        .btn-main { background: #3B82F6; color: white; border: none; padding: 20px; font-size: 20px; font-weight: bold; border-radius: 16px; cursor: pointer; box-shadow: 0 6px 0 #2563EB; transition: transform 0.1s; }
+        .btn-main:active { transform: translateY(6px); box-shadow: 0 0 0 #2563EB; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .subject-badge { background: #E2E8F0; padding: 5px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; color: #475569; }
+        .progress-container { width: 100%; background: #E2E8F0; height: 12px; border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
+        .progress-bar { height: 100%; background: #10B981; width: 0%; transition: width 0.3s ease; }
+        .progress-text { font-size: 14px; font-weight: bold; color: #64748B; margin-bottom: 30px; text-align: right; }
+        .question-box { flex-grow: 1; display: flex; align-items: center; justify-content: center; }
+        .question-text { font-size: 26px; font-weight: bold; color: #0F172A; }
+        .options-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .option-btn { background: #F8FAFC; border: 2px solid #E2E8F0; padding: 18px; font-size: 20px; font-weight: bold; border-radius: 16px; cursor: pointer; transition: all 0.2s; color: #334155; }
+        .option-btn:active { background: #E2E8F0; }
+        .option-btn.correct { background: #10B981; border-color: #10B981; color: white; transform: scale(1.05); }
+        .option-btn.wrong { background: #EF4444; border-color: #EF4444; color: white; animation: shake 0.4s; }
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } 100% { transform: translateX(0); } }
+        .success-code { font-size: 50px; font-weight: 900; color: #10B981; letter-spacing: 5px; margin: 20px 0; background: #ECFDF5; padding: 10px; border-radius: 15px; border: 2px dashed #10B981; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="screen-start" class="screen active">
+        <div class="logo-emoji">📱🔒</div>
+        <h1>Хочешь поиграть?</h1>
+        <p class="subtitle">Реши 3 задачи, чтобы получить доступ к телефону на 15 минут.</p>
+        <button class="btn-main" onclick="startGame()">Начать испытание</button>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="top-bar">
+            <span id="subject-label" class="subject-badge">Математика</span>
+            <div style="flex-grow: 1; margin-left: 15px;">
+                <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
+            </div>
+        </div>
+        <div class="progress-text"><span id="current-step">0</span> / <span id="total-steps">3</span></div>
+        <div class="question-box"><div id="question-text" class="question-text">Вопрос</div></div>
+        <div class="options-container">
+            <button class="option-btn" onclick="checkAnswer(0)" id="btn-0">Вариант 1</button>
+            <button class="option-btn" onclick="checkAnswer(1)" id="btn-1">Вариант 2</button>
+            <button class="option-btn" onclick="checkAnswer(2)" id="btn-2">Вариант 3</button>
+        </div>
+    </div>
+
+    <div id="screen-success" class="screen">
+        <div class="logo-emoji">🎉🚀</div>
+        <h1>Молодец!</h1>
+        <p class="subtitle">Ты отлично справился. Покажи этот код родителям, чтобы они разблокировали телефон:</p>
+        <div class="success-code" id="secret-code">0000</div>
+        <button class="btn-main" onclick="location.reload()" style="background: #64748B; box-shadow: 0 6px 0 #475569; margin-top: 30px;">Завершить</button>
+    </div>
+</div>
+
+<script>
+    const database = [
+        {q: `Сколько будет 7 × 8?`, options: ["54", "56", "64"], correctIndex: 1, subject: "Математика"},
+        {q: `Реши пример: 45 + 17`, options: ["62", "52", "63"], correctIndex: 0, subject: "Математика"},
+        {q: `Сколько будет 81 ÷ 9?`, options: ["7", "8", "9"], correctIndex: 2, subject: "Математика"},
+        {q: `У Пети 5 яблок, у Маши в 3 раза больше. Сколько у Маши?`, options: ["8", "15", "20"], correctIndex: 1, subject: "Математика"},
+        {q: `Вычисли: 100 – 43`, options: ["57", "67", "47"], correctIndex: 0, subject: "Математика"},
+        {q: `Какое число идет сразу после 399?`, options: ["398", "401", "400"], correctIndex: 2, subject: "Математика"},
+        {q: `Сколько будет 6 × 9?`, options: ["54", "56", "45"], correctIndex: 0, subject: "Математика"},
+        {q: `Чему равна половина от числа 50?`, options: ["20", "25", "30"], correctIndex: 1, subject: "Математика"},
+        {q: `Реши пример: 32 + 48`, options: ["70", "90", "80"], correctIndex: 2, subject: "Математика"},
+        {q: `Если 5 умножить на 0, получится:`, options: ["5", "0", "50"], correctIndex: 1, subject: "Математика"},
+        {q: `Вставь пропущенную букву: м...локо`, options: ["а", "о", "е"], correctIndex: 1, subject: "Русский язык"},
+        {q: `Какая буква пишется в слове: ж...раф?`, options: ["и", "ы", "е"], correctIndex: 0, subject: "Русский язык"},
+        {q: `Вставь пропущенную букву: с...бака`, options: ["а", "о", "у"], correctIndex: 1, subject: "Русский язык"},
+        {q: `Какая буква нужна в слове: ч...до?`, options: ["ю", "у", "о"], correctIndex: 1, subject: "Русский язык"},
+        {q: `Какое слово написано с ошибкой?`, options: ["Машина", "Шишка", "Жывот"], correctIndex: 2, subject: "Русский язык"},
+        {q: `Вставь пропущенную букву: со...нце`, options: ["л", "р", "буква не нужна"], correctIndex: 0, subject: "Русский язык"},
+        {q: `Какое проверочное слово к слову "тр...ва"?`, options: ["травушка", "травы", "травинка"], correctIndex: 1, subject: "Русский язык"},
+        {q: `Вставь пропущенную букву: ябл...ко`, options: ["а", "о", "и"], correctIndex: 1, subject: "Русский язык"},
+        {q: `Какое слово написано правильно?`, options: ["Чуство", "Чувство", "Чювство"], correctIndex: 1, subject: "Русский язык"},
+        {q: `Какое из этих слов означает действие (глагол)?`, options: ["Бег", "Бегать", "Быстрый"], correctIndex: 1, subject: "Русский язык"},
+        {q: `Сколько будет 6 × 7?`, options: ["42", "48", "36"], correctIndex: 0, subject: "Математика"},
+        {q: `Реши: 15 + 24`, options: ["49", "39", "29"], correctIndex: 1, subject: "Математика"},
+        {q: `Сколько будет 36 ÷ 6?`, options: ["7", "8", "6"], correctIndex: 2, subject: "Математика"},
+        {q: `В 1 часе сколько минут?`, options: ["100", "60", "50"], correctIndex: 1, subject: "Математика"},
+        {q: `Вычисли: 8 × 8`, options: ["64", "56", "72"], correctIndex: 0, subject: "Математика"},
+        {q: `У Маши 12 конфет, она съела 4. Сколько осталось?`, options: ["7", "9", "8"], correctIndex: 2, subject: "Математика"},
+        {q: `Реши: 50 – 18`, options: ["32", "42", "22"], correctIndex: 0, subject: "Математика"},
+        {q: `Сколько будет 27 ÷ 3?`, options: ["8", "9", "7"], correctIndex: 1, subject: "Математика"},
+        {q: `4 × 9 = ?`, options: ["32", "34", "36"], correctIndex: 2, subject: "Математика"},
+        {q: `Вычисли: 100 – 55`, options: ["45", "55", "35"], correctIndex: 0, subject: "Математика"},
+        {q: `Какое число больше: 405 или 450?`, options: ["405", "450", "Они равны"], correctIndex: 1, subject: "Математика"},
+        {q: `Сколько будет 5 × 7?`, options: ["30", "45", "35"], correctIndex: 2, subject: "Математика"},
+        {q: `Реши: 80 + 15`, options: ["95", "85", "105"], correctIndex: 0, subject: "Математика"},
+        {q: `1 метр — это сколько сантиметров?`, options: ["10", "100", "1000"], correctIndex: 1, subject: "Математика"},
+        {q: `Сколько будет 48 ÷ 8?`, options: ["5", "7", "6"], correctIndex: 2, subject: "Математика"},
+        {q: `Вычисли: 3 × 9`, options: ["27", "24", "36"], correctIndex: 0, subject: "Математика"},
+        {q: `В коробке 5 рядов по 6 конфет. Сколько всего?`, options: ["11", "30", "25"], correctIndex: 1, subject: "Математика"},
+        {q: `Реши: 64 ÷ 8`, options: ["7", "9", "8"], correctIndex: 2, subject: "Математика"},
+        {q: `Увеличь 15 на 10`, options: ["25", "5", "150"], correctIndex: 0, subject: "Математика"},
+        {q: `Уменьши 40 в 5 раз`, options: ["35", "8", "45"], correctIndex: 1, subject: "Математика"},
+        {q: `Сколько будет 7 × 9?`, options: ["54", "72", "63"], correctIndex: 2, subject: "Математика"},
+        {q: `Реши: 23 + 47`, options: ["70", "60", "80"], correctIndex: 0, subject: "Математика"},
+        {q: `Вычисли: 100 – 1`, options: ["90", "99", "10"], correctIndex: 1, subject: "Математика"},
+        {q: `Половина от 100 — это:`, options: ["25", "10", "50"], correctIndex: 2, subject: "Математика"},
+        {q: `Сколько будет 2 × 8?`, options: ["16", "18", "14"], correctIndex: 0, subject: "Математика"},
+        {q: `В 1 неделе сколько дней?`, options: ["5", "7", "10"], correctIndex: 1, subject: "Математика"},
+        {q: `Реши: 56 ÷ 7`, options: ["9", "7", "8"], correctIndex: 2, subject: "Математика"},
+        {q: `Найти сумму 14 и 16`, options: ["30", "20", "40"], correctIndex: 0, subject: "Математика"},
+        {q: `Разность чисел 20 и 5`, options: ["25", "15", "100"], correctIndex: 1, subject: "Математика"},
+        {q: `9 × 9 = ?`, options: ["72", "90", "81"], correctIndex: 2, subject: "Математика"},
+        {q: `Вычисли: 88 – 44`, options: ["44", "55", "33"], correctIndex: 0, subject: "Математика"},
+        {q: `Сколько лап у трех котов?`, options: ["10", "12", "8"], correctIndex: 1, subject: "Математика"},
+        {q: `Реши: 45 ÷ 5`, options: ["8", "10", "9"], correctIndex: 2, subject: "Математика"},
+        {q: `Чему равно 0 × 100?`, options: ["0", "100", "10"], correctIndex: 0, subject: "Математика"},
+        {q: `Какое число идет перед 500?`, options: ["400", "499", "501"], correctIndex: 1, subject: "Математика"},
+        {q: `Вычисли: 7 × 4`, options: ["32", "24", "28"], correctIndex: 2, subject: "Математика"},
+        {q: `Реши: 33 + 33`, options: ["66", "99", "63"], correctIndex: 0, subject: "Математика"},
+        {q: `Уменьши 50 на 20`, options: ["70", "30", "10"], correctIndex: 1, subject: "Математика"},
+        {q: `Сколько будет 42 ÷ 6?
